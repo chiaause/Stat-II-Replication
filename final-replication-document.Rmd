@@ -46,7 +46,24 @@ knitr::opts_chunk$set(echo = TRUE,
 <!--In this section, you are expected to present an extension to the analysis from the paper. Additionally, you should provide a detailed justification of your extension and its potential contribution.-->
 
 ```{r}
-# Please make sure we can see all code and output here
+# Calculate the 25th and 75th percentiles of log population density
+percentiles <- quantile(rdd_data$log_pop_density, c(0.25, 0.75))
+
+# Assign categories based on percentile thresholds
+rdd_data$pop_density_factor <- with(rdd_data, ifelse(log_pop_density < percentiles[1], "1-Low",
+                                                     ifelse(log_pop_density < percentiles[2], "2-Medium", "3-High")))
+
+# Convert to factor and specify the levels for ordered display
+rdd_data$pop_density_factor <- factor(rdd_data$pop_density_factor, levels = c("1-Low", "2-Medium", "3-High"))
+
+# Create histogram
+ggplot(rdd_data, aes(x = pop_density_factor)) +
+  geom_bar(aes(fill = pop_density_factor), stat = "count") +
+  labs(title = "Histogram of Population Density Categories",
+       x = "Population Density Category",
+       y = "Count",
+       fill = "Category") +
+  theme_minimal()
 ```
 
 ## Conclusion

@@ -1,0 +1,71 @@
+---
+title: "TYPE THE TITLE OF YOUR PAPER"
+author: "FILL IN YOUR STUDENT IDS"
+date: "`r format(Sys.time(), '%B %d, %Y | %H:%M:%S | %Z')`"
+output:
+  html_document:
+    df_print: paged
+    highlight: tango
+    number_sections: no
+    toc: no
+---
+
+```{r, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      eval = TRUE,
+                      error = FALSE,
+                      message = FALSE,
+                      warning = FALSE,
+                      comment = NA)
+```
+
+
+------------------------------------------------------------------------
+
+```{r, include = F}
+#LOAD THE PACKAGES YOU WILL BE USING IN THIS CODE CHUNK 
+
+```
+
+## 1. Summary
+
+<!--In this section, you are expected to provide a summary of the paper’s research question and main findings, as well as a detailed critical assessment of the causal identification strategy employed by the authors.-->
+
+
+## 2. Reproduction of paper's table or figure
+
+<!--In this section, you are expected to reproduce a table or figure from the paper relating to the modeling of the outcome(s) of interest.-->
+
+```{r}
+# Please make sure we can see all code and output here
+```
+
+
+## 3. Extension
+
+<!--In this section, you are expected to present an extension to the analysis from the paper. Additionally, you should provide a detailed justification of your extension and its potential contribution.-->
+
+```{r}
+# Please make sure we can see all code and output here
+```
+
+## Conclusion
+
+<!--Please briefly conclude by explaining what you've learned, both from the original paper and from your extension.-->
+
+------------------------------------------------------------------------
+
+## References
+
+## Optional: Statement of Contribution
+
+Group member [fill in ID here] contributed: 
+
+- 
+- 
+
+Group member [fill in ID here] contributed: 
+
+Group member [fill in ID here] contributed: 
+
+

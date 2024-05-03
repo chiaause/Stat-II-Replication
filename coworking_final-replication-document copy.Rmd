@@ -1,0 +1,352 @@
+---
+title: "TYPE THE TITLE OF YOUR PAPER"
+author: "FILL IN YOUR STUDENT IDS"
+date: "`r format(Sys.time(), '%B %d, %Y | %H:%M:%S | %Z')`"
+output:
+  html_document:
+    df_print: paged
+    highlight: tango
+    number_sections: no
+    toc: no
+---
+
+```{r, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      eval = TRUE,
+                      error = FALSE,
+                      message = FALSE,
+                      warning = FALSE,
+                      comment = NA)
+```
+
+------------------------------------------------------------------------
+
+```{r, include=FALSE}
+# Install Packages if not installed or if installed with different version
+pacman::p_load(devtools, tidyverse, rdrobust, rdpower, kableExtra, 
+               scales, rddensity, plm, rvest, lubridate, readxl)
+
+# packages with specific version
+pk = data.frame(
+  package = c("rdrobust", "rdpower"),
+  version = c("2.0.2", "2.2")
+  )
+
+# Function to install the appropriate version of package
+# This is important for the RD packages, for we noticed that different versions produce minimally different results
+pk_fun = function(package, version){
+  if(!package %in% installed.packages() | packageVersion(package) != version){
+devtools::install_version(package, version = version)}
+}
+
+# Apply to each package
+for(i in 1:nrow(pk)) pk_fun(package = pk$package[i], version = pk$version[i])
+
+# Load packages
+lapply(pk$package, library, character.only = TRUE)
+
+```
+
+
+## 1. Summary
+
+<!--In this section, you are expected to provide a summary of the paper’s research question and main findings, as well as a detailed critical assessment of the causal identification strategy employed by the authors.-->
+
+## 2. Reproduction of paper's table or figure
+
+<!--In this section, you are expected to reproduce a table or figure from the paper relating to the modeling of the outcome(s) of interest.-->
+
+```{r}
+# Load Analysis Dataset, rows are municipality-calendar year pairs
+rdd_data = readRDS("dataverse_files/dataset.Rds")
+
+########################
+## Figure 1: RD Plots ##
+########################
+
+# Set default ggplot theme (settings suitable for conversion into MS Word)
+theme_ggplot = theme(strip.text.x = element_text(margin = margin(0.1,0.1,0.1,0.1, "cm"), color = "black"),
+                     strip.text.y = element_text(margin = margin(0.1,0.1,0.1,0.1, "cm"), color = "black"),
+                     panel.border = element_rect(linewidth = 0.3, fill=NA),
+                     strip.background.x = element_blank(),
+                     strip.background.y = element_blank(),
+                     panel.grid = element_blank(),
+                     panel.spacing = unit(0.1, "lines"),
+                     strip.text = element_text(size = 8, color = "black"),
+                     axis.text.x = element_text(size = 6, color = "black"),
+                     axis.text.y = element_text(size = 7, color = "black"),
+                     axis.title = element_text(size = 8, color = "black"))
+
+fig1_data <- rdd_data %>% filter(abs(margin) < 8) %>%
+  mutate(mayor_populist = margin > 0) %>%
+  gather(key = dv, value = variable, 
+         c("bur_turnover", "bur_degree", "debt_repayment", "debt_accumulation", "cost_overrun_dummy")) %>%
+  filter(!is.na(variable)) %>%
+  mutate(dv = case_when(str_detect(dv, "turnover") ~ "Turnover\nManagers",
+                        str_detect(dv, "repayment") ~ "Debt\nRepayment",
+                        str_detect(dv, "overrun") ~ "Percent Cost\nOverruns",
+                        str_detect(dv, "accumulation") ~ "Debt\nAccumulation",
+                        str_detect(dv, "degree") ~ "Percent Postgraduate\nManagers"))
+
+fig1_data$dv = factor(fig1_data$dv, 
+                      levels = c("Debt\nAccumulation", "Debt\nRepayment", "Percent Cost\nOverruns", "Turnover\nManagers", "Percent Postgraduate\nManagers"))
+
+fig1 = ggplot(fig1_data, aes(x = margin, y = variable, shape = mayor_populist, 
+                             color = as.factor(mayor_populist), linetype = mayor_populist)) +
+  stat_summary_bin(fun = "mean", binwidth = 0.5, geom = "point", size = 0.4) +
+  theme_bw() +
+  scale_color_manual(values = c("black", "grey60")) +
+  geom_vline(xintercept = 0, linewidth = 0.1, linetype = 2) +
+  guides(shape = "none", linetype = "none", color = "none") +
+  geom_smooth(size = 0.5, method = "lm", formula = y ~ poly(x,2), se = F) +
+  labs(x = "Margin of Victory", y = NULL) +
+  scale_y_continuous(labels = scales::number_format(accuracy = 0.01)) +
+  facet_wrap(~dv, ncol = 5, scales = "free_y") +
+  theme_ggplot
+
+# Visualize the plot
+ggsave("figure_1.png", fig1, width=7.2, height=2.2)
+knitr::include_graphics("figure_1.png")
+
+```
+
+## 3. Extension
+
+<!--In this section, you are expected to present an extension to the analysis from the paper. Additionally, you should provide a detailed justification of your extension and its potential contribution.-->
+
+```{r}
+# Supplemental Information
+# Table F.13
+ # - F.13: Difference in estimates in municipalities with population above-below median
+
+# Median population
+med_pop = median(rdd_data$population_istat[!is.na(rdd_data$margin)], na.rm = T)
+
+datasets <- list(rdd_data %>% filter(north_region == 1),
+                 rdd_data %>% filter(north_region == 0),
+                 rdd_data %>% filter(population_istat > med_pop),
+                 rdd_data %>% filter(population_istat <= med_pop))
+
+# name of subsample
+subsample <- c("North", "Centre-South","Large M.", "Small M.")
+
+# name and type of dvs
+dv_names <- c("Debt Accumulation", "Debt Repayment", "% Cost Overruns", "Turnover Managers", "% Postgraduate Managers")
+type <- c(rep("Government\nPerformance", 3), rep("Quality of\nBureaucrats", 2))
+
+north_south_median_population <- data.frame()
+
+for(j in 1:length(datasets)){
+
+  rd <- datasets[[j]]
+
+  # List of DV
+  dv <- with(rd, list(
+    # Performance
+    debt_accumulation,
+    debt_repayment,
+    cost_overrun_dummy,
+    # Bureaucrats
+    bur_turnover,
+    bur_degree
+  ))
+
+
+  for(i in 1:length(dv)){
+
+    rd_no_cov <- with(rd, rdrobust(y = dv[[i]],
+                                   x = margin,
+                                   all = T,
+                                   cluster = ISTAT_CODICE_COMUNE))
+
+    results_cov <- data.frame(dv = dv_names[i],
+                              estimate = rd_no_cov$coef[1],
+                              se = rd_no_cov$se[3],
+                              p.value = rd_no_cov$pv[3],
+                              h = rd_no_cov$bws[1],
+                              conf.low = rd_no_cov$ci[3],
+                              conf.high = rd_no_cov$ci[6],
+                              `Obs. used` = sum(rd_no_cov$N_h),
+                              cov = "No Covariates",
+                              type = type[i],
+                              subsample = subsample[j])
+
+    north_south_median_population <- rbind(north_south_median_population, results_cov)
+
+  }
+}
+
+
+# round digits
+north_south_median_population <- north_south_median_population %>%
+  mutate_all(function(x){
+    if(is.numeric(x)){ x %>% round(3)
+    }else{x}})
+
+# Difference
+north <- north_south_median_population %>% filter(subsample == "North")
+south <- north_south_median_population %>% filter(subsample == "Centre-South")
+large <- north_south_median_population %>% filter(subsample == "Large M.")
+small <- north_south_median_population %>% filter(subsample == "Small M.")
+
+diff_north_south <- bind_cols(south %>% select(dv, estimate, se),
+                              north %>% select(estimate, se),
+                              data.frame(diff = south$estimate - north$estimate,
+                                         se = sqrt(south$se^2 + north$se^2)) %>%
+                                mutate(p.value = 2*(1-pnorm(abs(diff / se))))
+)
+
+names(diff_north_south)  <- c("Outcome", rep(c("Estimate", "SE"), 2), "Difference", "SE", "p.value")
+
+
+diff_pop_size <- bind_cols(large %>% select(dv, estimate, se),
+                           small %>% select(estimate, se),
+                           data.frame(diff = large$estimate - small$estimate,
+                                      se = sqrt(large$se^2 + small$se^2)) %>%
+                             mutate(p.value = 2*(1-pnorm(abs(diff / se))))
+)
+
+names(diff_pop_size)  <- c("Outcome", rep(c("Estimate", "SE"), 2), "Difference", "SE", "p.value")
+
+# save table F.13
+kableExtra::kable(diff_pop_size, booktabs = T,
+                  format.args = list(big.mark = ","),
+                  align = c("r", rep("c", 7)),
+                  digits = 3,
+                  linesep = "",
+                  caption = "Table F.13: RD estimates of the effect of electing a populist mayor estimated on two sub-samples of observations above and below the median population size (8,612 inhabitants), as well as the difference in RD estimates. Same estimation of baseline analysis. To maximize sample size, no covariates were included. Period of analysis: cost overruns 2012-2020, debt accumulation and repayment 2008-2019, turnover and education of bureaucrats 2001-2019.", escape = F) %>%
+  kableExtra::add_header_above(c(" " = 1, "Above\nMedian Population" = 2, "Below\nMedian Population" = 2, "Difference\n(Above-Below)" = 3), bold = T) %>%
+  kableExtra::kable_paper(full_width = T) %>%
+  kableExtra::kable_classic() %>%
+  kableExtra::kable_styling(font_size = 11)
+
+```
+
+```{r}
+# Please make sure we can see all code and output here
+
+# add variable of population density: population divided by surface area
+rdd_data$pop_density = rdd_data$population_istat / rdd_data$ISTAT_surface_sq_km
+
+# filter the NA values
+#rdd_data = rdd_data %>% filter(!is.na(pop_density))
+
+# Create a new variable for the log of population density
+rdd_data$log_pop_density = log(rdd_data$pop_density)
+
+# create a new factor variable for the log of population density
+rdd_data$pop_density_factor = NA
+rdd_data$pop_density_factor[rdd_data$log_pop_density < 4.2] = "1-Low"
+rdd_data$pop_density_factor[rdd_data$log_pop_density >= 4.2 & rdd_data$log_pop_density < 5.2] = "2-Medium"
+rdd_data$pop_density_factor[rdd_data$log_pop_density >= 5.2] = "3-High"
+rdd_data$pop_density_factor = factor(rdd_data$pop_density_factor, 
+                                     levels = c("1-Low", "2-Medium", "3-High"))
+
+
+density_datasets <- list(rdd_data %>% filter(pop_density_factor == "1-Low"),
+                         rdd_data %>% filter(pop_density_factor == "2-Medium"),
+                         rdd_data %>% filter(pop_density_factor == "3-High"))
+
+# name of subsample
+subsample <- c("Low", "M. Low","M. High", "High")
+
+# name and type of dvs
+dv_names <- c("Debt Accumulation", "Debt Repayment", "% Cost Overruns", "Turnover Managers", "% Postgraduate Managers")
+type <- c(rep("Government\nPerformance", 3), rep("Quality of\nBureaucrats", 2))
+
+population_density <- data.frame()
+
+for(j in 1:length(density_datasets)){
+
+  rd <- density_datasets[[j]]
+
+  # List of DV
+  dv <- with(rd, list(
+    # Performance
+    debt_accumulation,
+    debt_repayment,
+    cost_overrun_dummy,
+    # Bureaucrats
+    bur_turnover,
+    bur_degree
+  ))
+
+
+  for(i in 1:length(dv)){
+
+    rd_no_cov <- with(rd, rdrobust(y = dv[[i]],
+                                   x = margin,
+                                   all = T,
+                                   cluster = ISTAT_CODICE_COMUNE))
+
+    results_cov <- data.frame(dv = dv_names[i],
+                              estimate = rd_no_cov$coef[1],
+                              se = rd_no_cov$se[3],
+                              p.value = rd_no_cov$pv[3],
+                              h = rd_no_cov$bws[1],
+                              conf.low = rd_no_cov$ci[3],
+                              conf.high = rd_no_cov$ci[6],
+                              `Obs. used` = sum(rd_no_cov$N_h),
+                              cov = "No Covariates",
+                              type = type[i],
+                              subsample = subsample[j])
+
+    population_density <- rbind(population_density, results_cov)
+
+  }
+}
+
+
+# round digits
+population_density <- population_density %>%
+  mutate_all(function(x){
+    if(is.numeric(x)){ x %>% round(3)
+    }else{x}})
+
+# Categories
+low <- population_density %>% filter(subsample == "Low")
+medium_low <- population_density %>% filter(subsample == "M. Low")
+medium_high <- population_density %>% filter(subsample == "M. High")
+high <- population_density %>% filter(subsample == "High")
+
+diff_pop_density <- bind_cols(low %>% select(dv, estimate, se),
+                              medium_low %>% select(estimate, se),
+                              medium_high %>% select(estimate, se),
+                              high %>% select(estimate, se))
+
+names(diff_pop_density)  <- c("Outcome", rep(c("Estimate", "SE"), 4))
+
+
+# save table F.14 with four categories: low, medium low, medium high, high
+kableExtra::kable(diff_pop_density, booktabs = T,
+                  format.args = list(big.mark = ","),
+                  align = c("r", rep("c", 8)),
+                  digits = 3,
+                  linesep = "",
+                  caption = "Table F.14: RD estimates of the effect of electing a populist mayor estimated on four sub-samples of observations based on the log of population density. Same estimation of baseline analysis. To maximize sample size, no covariates were included. Period of analysis: cost overruns 2012-2020, debt accumulation and repayment 2008-2019, turnover and education of bureaucrats 2001-2019.", escape = F) %>%
+  kableExtra::add_header_above(c(" " = 1, "Low" = 2, "Medium Low" = 2, "Medium High" = 2, "High" = 2), bold = T) %>%
+  kableExtra::kable_paper(full_width = F) %>%
+  kableExtra::kable_classic() %>%
+  kableExtra::kable_styling(font_size = 11) 
+
+```
+
+## Conclusion
+
+<!--Please briefly conclude by explaining what you've learned, both from the original paper and from your extension.-->
+
+------------------------------------------------------------------------
+
+## References
+
+## Optional: Statement of Contribution
+
+Group member [fill in ID here] contributed:
+
+-   
+
+-   
+
+Group member [fill in ID here] contributed:
+
+Group member [fill in ID here] contributed:

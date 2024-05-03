@@ -329,7 +329,7 @@ kableExtra::kable(diff_pop_density, booktabs = T,
                   linesep = "",
                   caption = "Table F.14: RD estimates of the effect of electing a populist mayor estimated on four sub-samples of observations based on the log of population density. Same estimation of baseline analysis. To maximize sample size, no covariates were included. Period of analysis: cost overruns 2012-2020, debt accumulation and repayment 2008-2019, turnover and education of bureaucrats 2001-2019.", escape = F) %>%
   kableExtra::add_header_above(c(" " = 1, "Low" = 2, "Medium" = 2,"High" = 2), bold = T) %>%
-  kableExtra::kable_paper(full_width = F) %>%
+  kableExtra::kable_paper(full_width = T) %>%
   kableExtra::kable_classic() %>%
   kableExtra::kable_styling(font_size = 11) 
 

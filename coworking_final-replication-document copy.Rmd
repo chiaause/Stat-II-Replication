@@ -114,6 +114,8 @@ knitr::include_graphics("figure_1.png")
 
 <!--In this section, you are expected to present an extension to the analysis from the paper. Additionally, you should provide a detailed justification of your extension and its potential contribution.-->
 
+### Reference Code from the authors (DELETE BEFORE SUBMIT)
+
 ```{r}
 # Supplemental Information
 # Table F.13
@@ -222,14 +224,13 @@ kableExtra::kable(diff_pop_size, booktabs = T,
 
 ```
 
+### Extension Code
+
 ```{r}
 # Please make sure we can see all code and output here
 
 # add variable of population density: population divided by surface area
 rdd_data$pop_density = rdd_data$population_istat / rdd_data$ISTAT_surface_sq_km
-
-# count the number of NA values of margin
-sum(is.na(rdd_data$margin))
 
 # filter the NA values of margin
 rdd_data2 = rdd_data %>% filter(!is.na(margin))
@@ -240,21 +241,44 @@ rdd_data2 = rdd_data %>% filter(!is.na(margin))
 # Create a new variable for the log of population density
 rdd_data2$log_pop_density = log(rdd_data2$pop_density)
 
+# 2 cotegories of population density
+
+# Median log population density
+med_pop_density = median(rdd_data2$log_pop_density[!is.na(rdd_data2$margin)], na.rm = T)
+
 # create a new factor variable for the log of population density
 rdd_data2$pop_density_factor = NA
-rdd_data2$pop_density_factor[rdd_data2$log_pop_density < 5.3] = "1-Low"
-rdd_data2$pop_density_factor[rdd_data2$log_pop_density >= 5.3 & rdd_data2$log_pop_density < 6.3] = "2-Medium"
-rdd_data2$pop_density_factor[rdd_data2$log_pop_density >= 6.3] = "3-High"
-rdd_data2$pop_density_factor = factor(rdd_data2$pop_density_factor, 
-                                     levels = c("1-Low", "2-Medium", "3-High"))
+rdd_data2$pop_density_factor[rdd_data2$log_pop_density < med_pop_density] = "1-Low"
+rdd_data2$pop_density_factor[rdd_data2$log_pop_density >= med_pop_density] = "2-High"
+rdd_data2$pop_density_factor = factor(rdd_data2$pop_density_factor)
 
 
 density_datasets <- list(rdd_data2 %>% filter(pop_density_factor == "1-Low"),
-                         rdd_data2 %>% filter(pop_density_factor == "2-Medium"),
-                         rdd_data2 %>% filter(pop_density_factor == "3-High"))
+                         rdd_data2 %>% filter(pop_density_factor == "2-High"))
 
 # name of subsample
-subsample <- c("Low", "Medium", "High")
+subsample <- c("Low", "High")
+
+#######################################################################################
+# 3 cotegories of population density
+#
+# # create a new factor variable for the log of population density
+# rdd_data2$pop_density_factor = NA
+# rdd_data2$pop_density_factor[rdd_data2$log_pop_density < 5.3] = "1-Low"
+# rdd_data2$pop_density_factor[rdd_data2$log_pop_density >= 5.3 & rdd_data2$log_pop_density < 6.3] = "2-Medium"
+# rdd_data2$pop_density_factor[rdd_data2$log_pop_density >= 6.3] = "3-High"
+# rdd_data2$pop_density_factor = factor(rdd_data2$pop_density_factor, 
+#                                      levels = c("1-Low", "2-Medium", "3-High"))
+# 
+# 
+# density_datasets <- list(rdd_data2 %>% filter(pop_density_factor == "1-Low"),
+#                          rdd_data2 %>% filter(pop_density_factor == "2-Medium"),
+#                          rdd_data2 %>% filter(pop_density_factor == "3-High"))
+# 
+# # name of subsample
+# subsample <- c("Low", "Medium", "High")
+#
+#######################################################################################
 
 # name and type of dvs
 dv_names <- c("Debt Accumulation", "Debt Repayment", "% Cost Overruns", "Turnover Managers", "% Postgraduate Managers")
@@ -311,24 +335,26 @@ population_density <- population_density %>%
 
 # Categories
 low <- population_density %>% filter(subsample == "Low")
-medium <- population_density %>% filter(subsample == "Medium")
 high <- population_density %>% filter(subsample == "High")
 
 diff_pop_density <- bind_cols(low %>% select(dv, estimate, se),
-                              medium %>% select(estimate, se),
-                              high %>% select(estimate, se))
+                              high %>% select(estimate, se),
+                              data.frame(diff = high$estimate - low$estimate,
+                                         se = sqrt(high$se^2 + low$se^2)) %>%
+                              mutate(p.value = 2*(1-pnorm(abs(diff / se))))
+                             )
 
-names(diff_pop_density)  <- c("Outcome", rep(c("Estimate", "SE"), 3))
+names(diff_pop_density)  <- c("Outcome", rep(c("Estimate", "SE"), 2), "Difference", "SE", "p.value")
 
 
 # save table F.14 with four categories: low, medium low, medium high, high
 kableExtra::kable(diff_pop_density, booktabs = T,
                   format.args = list(big.mark = ","),
-                  align = c("r", rep("c", 8)),
+                  align = c("r", rep("c", 7)),
                   digits = 3,
                   linesep = "",
-                  caption = "Table F.14: RD estimates of the effect of electing a populist mayor estimated on four sub-samples of observations based on the log of population density. Same estimation of baseline analysis. To maximize sample size, no covariates were included. Period of analysis: cost overruns 2012-2020, debt accumulation and repayment 2008-2019, turnover and education of bureaucrats 2001-2019.", escape = F) %>%
-  kableExtra::add_header_above(c(" " = 1, "Low" = 2, "Medium" = 2,"High" = 2), bold = T) %>%
+                  caption = "Table F.14: RD estimates of the effect of electing a populist mayor estimated based on the log of population density. Same estimation of baseline analysis. To maximize sample size, no covariates were included. Period of analysis: cost overruns 2012-2020, debt accumulation and repayment 2008-2019, turnover and education of bureaucrats 2001-2019.", escape = F) %>%
+  kableExtra::add_header_above(c(" " = 1, "Low Density" = 2, "High Density" = 2, "Difference\n(Low-High)" = 3), bold = T) %>%
   kableExtra::kable_paper(full_width = T) %>%
   kableExtra::kable_classic() %>%
   kableExtra::kable_styling(font_size = 11) 

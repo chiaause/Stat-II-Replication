@@ -46,6 +46,20 @@ knitr::opts_chunk$set(echo = TRUE,
 <!--In this section, you are expected to present an extension to the analysis from the paper. Additionally, you should provide a detailed justification of your extension and its potential contribution.-->
 
 ```{r}
+# add variable of population density: population divided by surface area
+rdd_data$pop_density = rdd_data$population_istat / rdd_data$ISTAT_surface_sq_km
+
+# Create a new variable for the log of population density
+rdd_data$log_pop_density = log(rdd_data$pop_density)
+
+# create a new factor variable for the log of population density
+rdd_data$pop_density_factor = NA
+rdd_data$pop_density_factor[rdd_data$log_pop_density < 4.2] = "1-Low"
+rdd_data$pop_density_factor[rdd_data$log_pop_density >= 4.2 & rdd_data$log_pop_density < 5.2] = "2-Medium"
+rdd_data$pop_density_factor[rdd_data$log_pop_density >= 5.2] = "3-High"
+rdd_data$pop_density_factor = factor(rdd_data$pop_density_factor, 
+                                     levels = c("1-Low", "2-Medium", "3-High"))
+
 # Calculate the 25th and 75th percentiles of log population density
 percentiles <- quantile(rdd_data$log_pop_density, c(0.25, 0.75))
 

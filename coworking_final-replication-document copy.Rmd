@@ -260,7 +260,7 @@ density_datasets <- list(rdd_data2 %>% filter(pop_density_factor == "1-Low"),
 subsample <- c("Low", "High")
 
 #######################################################################################
-# 3 cotegories of population density
+# 3 categories of population density
 #
 # # create a new factor variable for the log of population density
 # rdd_data2$pop_density_factor = NA
